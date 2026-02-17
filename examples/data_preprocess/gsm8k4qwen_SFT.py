@@ -37,6 +37,24 @@ if __name__ == "__main__":
         "in the format: #### <number>"
     )
     
+    # USE THIS FOR THE BASE MODELS, LIKE "Llama-3.1-8B"
+    # def make_map_fn(split):
+    #     def process_fn(example, idx):
+    #         q = example["question"]
+    #         a = example["answer"]
+
+    #         prompt = f"{system_prompt}\n\nQuestion: {q}\nAnswer:"
+    #         response = a
+
+    #         return {
+    #             "prompt": prompt,
+    #             "response": response,
+    #             # optional debugging / bookkeeping
+    #             "extra_info": {"split": split, "index": idx},
+    #         }
+    #     return process_fn
+    
+    
     # add a row to each data item that represents a unique id
     def make_map_fn(split):
         def process_fn(example, idx):
@@ -46,7 +64,10 @@ if __name__ == "__main__":
                 {"role": "user", "content": example["question"]},
                 {"role": "assistant", "content": example["answer"]},
             ]
-            return {"messages": messages}#, "enable_thinking": False,}
+            return {
+                "messages": messages,
+                "extra_info": {"split": split, "index": idx}
+            }#, "enable_thinking": False,}
         return process_fn
 
     train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
