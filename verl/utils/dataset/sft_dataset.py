@@ -84,6 +84,15 @@ class SFTDataset(Dataset):
 
             while isinstance(ls, pandas.core.series.Series | numpy.ndarray) and len(ls) == 1:
                 ls = ls[0]
+            # UNCOMMENT IF ISSUES WITH THE DATASET
+            # while len(ls) == 1:
+            #     if isinstance(ls, pandas.core.series.Series):
+            #         # Series index can be non-numeric (e.g. "extra_info"), so use positional access.
+            #         ls = ls.iloc[0]
+            #     elif isinstance(ls, numpy.ndarray | list | tuple):
+            #         ls = ls[0]
+            #     else:
+            #         break
             return ls
 
         dataframes = []
