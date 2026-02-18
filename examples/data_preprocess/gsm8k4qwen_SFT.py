@@ -17,8 +17,18 @@ Preprocess the GSM8k dataset to parquet format for Qwen3 SFT
 
 import argparse
 import os
+# import re
 
 import datasets
+
+
+# def extract_solution(solution_str):
+#     solution = re.search("#### (\\-?[0-9\\.\\,]+)", solution_str)
+#     assert solution is not None
+#     final_solution = solution.group(0)
+#     final_solution = final_solution.split("#### ")[1].replace(",", "")
+#     return final_solution
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -26,7 +36,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    dataset = datasets.load_dataset("openai/gsm8k", "main")
+    data_source = "openai/gsm8k"
+    dataset = datasets.load_dataset(data_source, "main")
 
     train_dataset = dataset["train"]
     test_dataset = dataset["test"]
@@ -60,9 +71,18 @@ if __name__ == "__main__":
         def process_fn(example, idx):
             """Convert a GSM8K example into a chat-formatted conversation."""
             messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": example["question"]},
-                {"role": "assistant", "content": example["answer"]},
+                {
+                    "role": "system", 
+                    "content": system_prompt
+                },
+                {
+                    "role": "user", 
+                    "content": example["question"]
+                },
+                {
+                    "role": "assistant", 
+                    "content": example["answer"]
+                },
             ]
             return {
                 "messages": messages,
@@ -70,6 +90,37 @@ if __name__ == "__main__":
             }#, "enable_thinking": False,}
         return process_fn
 
+    # TODO: CHECK IF THIS WITHOUT MULTITURN WILL WORK BETTER/DIFFERENTLY
+    # # add a row to each data item that represents a unique id
+    # def make_map_fn(split):
+    #     def process_fn(example, idx):
+    #         question_raw = example.pop("question")
+
+    #         answer_raw = example.pop("answer")
+    #         solution = extract_solution(answer_raw)
+    #         data = {
+    #             "data_source": data_source,
+    #             "prompt": [
+    #                 {   
+    #                     "role": "system",
+    #                     "content": system_prompt,
+    #                 },
+    #                 {   
+    #                     "role": "user",
+    #                     "content": question_raw,
+    #                 }
+    #             ],
+    #             "ability": "math",
+    #             "reward_model": {"style": "rule", "ground_truth": solution},
+    #             "extra_info": {
+    #                 "split": split,
+    #                 "index": idx,
+    #                 "answer": answer_raw,
+    #                 "question": question_raw,
+    #             },
+    #         }
+    
+    
     train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True)
     test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True)
 
