@@ -21,8 +21,6 @@ import re
 
 import datasets
 
-from verl.utils.hdfs_io import copy, makedirs
-
 
 def extract_solution(solution_str):
     solution = re.search("#### (\\-?[0-9\\.\\,]+)", solution_str)
@@ -34,12 +32,17 @@ def extract_solution(solution_str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--local_save_dir", default="~/data/gsm8k", help="The save directory for the preprocessed dataset.")
+    parser.add_argument("--local_save_dir", default=None, help="The save directory for the preprocessed dataset.")
+    parser.add_argument("--data_source", default="openai/gsm8k", help="HF dataset source.")
+    parser.add_argument("--data_config", default="main", help="HF dataset config.")
 
     args = parser.parse_args()
+    if args.local_save_dir is None:
+        raise ValueError("--local_save_dir is required")
+    os.makedirs(args.local_save_dir, exist_ok=True)
     
-    data_source = "openai/gsm8k"
-    dataset = datasets.load_dataset(data_source, "main")
+    data_source = args.data_source
+    dataset = datasets.load_dataset(data_source, args.data_config)
 
     train_dataset = dataset["train"]
     test_dataset = dataset["test"]
@@ -53,9 +56,8 @@ if __name__ == "__main__":
     # add a row to each data item that represents a unique id
     def make_map_fn(split):
         def process_fn(example, idx):
-            question_raw = example.pop("question")
-
-            answer_raw = example.pop("answer")
+            question_raw = example["question"]
+            answer_raw = example["answer"]
             solution = extract_solution(answer_raw)
             data = {
                 "data_source": data_source,

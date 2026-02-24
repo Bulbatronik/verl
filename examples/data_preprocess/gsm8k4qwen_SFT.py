@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Preprocess the GSM8k dataset to parquet format for Qwen3 SFT
+Preprocess GSM8K into parquet format for SFT.
+
+Default output is chat-style `messages`, compatible with
+`data.multiturn.enable=true` and `data.multiturn.messages_key=messages`.
 """
 
 import argparse
@@ -33,11 +36,22 @@ import datasets
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_save_dir", default=None, help="The save directory for the preprocessed dataset.")
+    parser.add_argument("--data_source", default="openai/gsm8k", help="HF dataset source.")
+    parser.add_argument("--data_config", default="main", help="HF dataset config.")
+    parser.add_argument(
+        "--output_format",
+        default="messages",
+        choices=["messages", "prompt_response"],
+        help="Output schema. Keep `messages` for current verl multiturn SFT pipeline.",
+    )
     
     args = parser.parse_args()
+    if args.local_save_dir is None:
+        raise ValueError("--local_save_dir is required")
+    os.makedirs(args.local_save_dir, exist_ok=True)
     
-    data_source = "openai/gsm8k"
-    dataset = datasets.load_dataset(data_source, "main")
+    data_source = args.data_source
+    dataset = datasets.load_dataset(data_source, args.data_config)
 
     train_dataset = dataset["train"]
     test_dataset = dataset["test"]
@@ -66,28 +80,38 @@ if __name__ == "__main__":
     #     return process_fn
     
     
-    # add a row to each data item that represents a unique id
     def make_map_fn(split):
         def process_fn(example, idx):
-            """Convert a GSM8K example into a chat-formatted conversation."""
-            messages = [
-                {
-                    "role": "system", 
-                    "content": system_prompt
-                },
-                {
-                    "role": "user", 
-                    "content": example["question"]
-                },
-                {
-                    "role": "assistant", 
-                    "content": example["answer"]
-                },
-            ]
+            question = example["question"]
+            answer = example["answer"]
+
+            if args.output_format == "messages":
+                messages = [
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": question,
+                    },
+                    {
+                        "role": "assistant",
+                        "content": answer,
+                    },
+                ]
+                return {
+                    "messages": messages,
+                    "extra_info": {"split": split, "index": idx},
+                }
+
+            prompt = f"{system_prompt}\n\nQuestion: {question}\nAnswer:"
             return {
-                "messages": messages,
-                "extra_info": {"split": split, "index": idx}
-            }#, "enable_thinking": False,}
+                "prompt": prompt,
+                "response": answer,
+                "extra_info": {"split": split, "index": idx},
+            }
+
         return process_fn
 
     # TODO: CHECK IF THIS WITHOUT MULTITURN WILL WORK BETTER/DIFFERENTLY
